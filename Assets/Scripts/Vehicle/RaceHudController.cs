@@ -39,6 +39,9 @@ public sealed class RaceHudController : MonoBehaviour
     private float currentLapTime;
     private bool raceFinished;
 
+    public int CurrentLap => currentLap;
+    public int TotalLaps => totalLaps;
+
     private void Awake()
     {
         totalLaps = Mathf.Max(1, totalLaps);

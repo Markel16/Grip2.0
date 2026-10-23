@@ -54,11 +54,37 @@ public sealed class ArcadeCarController : MonoBehaviour
     private float brakeInput;
     private float handbrakeInput;
     private bool externalInputMode;
+    private bool pitStopHeld;
 
     public float FuelCapacityLiters => fuelCapacityLiters;
     public float FuelRemainingLiters => fuelRemainingLiters;
     public float CurrentSpeedKph => vehicleBody != null ? vehicleBody.linearVelocity.magnitude * 3.6f : 0f;
     public Vector3 WorldForward => transform.TransformDirection(localForwardDirection.normalized);
+    public float AverageTireWearPercent
+    {
+        get
+        {
+            if (wheels == null || wheels.Length == 0)
+            {
+                return 0f;
+            }
+
+            float totalWear = 0f;
+            int tireCount = 0;
+            foreach (WheelSetup wheel in wheels)
+            {
+                if (wheel == null || wheel.Tire == null)
+                {
+                    continue;
+                }
+
+                totalWear += wheel.Tire.WearPercent;
+                tireCount++;
+            }
+
+            return tireCount > 0 ? totalWear / tireCount : 0f;
+        }
+    }
 
     private void Awake()
     {
@@ -100,6 +126,15 @@ public sealed class ArcadeCarController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (pitStopHeld)
+        {
+            steeringInput = 0f;
+            throttleInput = 0f;
+            reverseInput = 0f;
+            brakeInput = 1f;
+            handbrakeInput = 1f;
+        }
+
         Vector3 vehicleForward = transform.TransformDirection(localForwardDirection.normalized);
         float forwardSpeedKph = vehicleBody == null
             ? 0f
@@ -181,6 +216,37 @@ public sealed class ArcadeCarController : MonoBehaviour
     public void Refuel(float liters)
     {
         fuelRemainingLiters = Mathf.Clamp(fuelRemainingLiters + Mathf.Max(0f, liters), 0f, fuelCapacityLiters);
+    }
+
+    public void ReplaceTires()
+    {
+        if (wheels == null)
+        {
+            return;
+        }
+
+        foreach (WheelSetup wheel in wheels)
+        {
+            if (wheel != null && wheel.Tire != null)
+            {
+                wheel.Tire.ResetWear();
+            }
+        }
+    }
+
+    public void SetPitStopHold(bool held)
+    {
+        pitStopHeld = held;
+        if (!held)
+        {
+            return;
+        }
+
+        steeringInput = 0f;
+        throttleInput = 0f;
+        reverseInput = 0f;
+        brakeInput = 1f;
+        handbrakeInput = 1f;
     }
 
     public void SetExternalInputMode(bool enabled)

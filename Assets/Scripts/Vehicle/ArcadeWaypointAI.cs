@@ -22,6 +22,10 @@ public sealed class ArcadeWaypointAI : MonoBehaviour
     private int targetWaypointIndex;
     private float effectiveDifficulty;
     private float steeringNoiseOffset;
+    private bool pitStopHeld;
+    private bool approachingPitEntry;
+    private Transform pitTarget;
+    private PitStopManager pitStopManager;
 
     public float EffectiveDifficulty => effectiveDifficulty;
     public int TargetWaypointIndex => targetWaypointIndex;
@@ -57,12 +61,18 @@ public sealed class ArcadeWaypointAI : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (pitStopHeld)
+        {
+            carController.SetExternalDriveInput(0f, 0f, 1f, 1f);
+            return;
+        }
+
         if (carController == null || waypoints == null || waypoints.Length == 0)
         {
             return;
         }
 
-        Transform target = waypoints[targetWaypointIndex];
+        Transform target = pitTarget != null ? pitTarget : waypoints[targetWaypointIndex];
         if (target == null)
         {
             return;
@@ -73,6 +83,30 @@ public sealed class ArcadeWaypointAI : MonoBehaviour
 
         if (directionToTarget.sqrMagnitude <= waypointReachDistance * waypointReachDistance)
         {
+            if (pitTarget != null)
+            {
+                if (approachingPitEntry)
+                {
+                    approachingPitEntry = false;
+                    if (pitStopManager == null
+                        || !pitStopManager.OnAIReachedPit(this, carController))
+                    {
+                        if (pitStopManager != null)
+                        {
+                            pitStopManager.CancelAIPitApproach(carController);
+                        }
+
+                        pitTarget = null;
+                    }
+                }
+                else
+                {
+                    pitTarget = null;
+                }
+
+                return;
+            }
+
             AdvanceWaypoint();
             target = waypoints[targetWaypointIndex];
             if (target == null)
@@ -125,6 +159,36 @@ public sealed class ArcadeWaypointAI : MonoBehaviour
         }
 
         targetWaypointIndex = nextIndex;
+    }
+
+    public void SetPitStopHold(bool held)
+    {
+        pitStopHeld = held;
+        if (held && carController != null)
+        {
+            carController.SetExternalDriveInput(0f, 0f, 1f, 1f);
+        }
+    }
+
+    public void DriveToPitEntry(PitStopManager manager, Transform entry)
+    {
+        pitStopManager = manager;
+        pitTarget = entry;
+        approachingPitEntry = true;
+        pitStopHeld = false;
+    }
+
+    public void StopAtPitBox()
+    {
+        pitTarget = null;
+        approachingPitEntry = false;
+        SetPitStopHold(true);
+    }
+
+    public void DriveToPitExit(Transform exit)
+    {
+        pitTarget = exit;
+        approachingPitEntry = false;
     }
 
     private void OnDisable()

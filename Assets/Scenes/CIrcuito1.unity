@@ -3540,6 +3540,61 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &846779519
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 846779520}
+  - component: {fileID: 846779521}
+  m_Layer: 0
+  m_Name: PitStopManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &846779520
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 846779519}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 7.31, y: 8.69, z: -31.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &846779521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 846779519}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9da8a845f96143ac99c785f21c279258, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PitStopManager
+  entryZoneLocalPosition: {x: 0, y: 0, z: 0}
+  exitZoneLocalPosition: {x: 0, y: 0, z: 12}
+  zoneSize: {x: 8, y: 4, z: 6}
+  stopSpeedKph: 1
+  serviceSeconds: 3
+  missPenaltySeconds: 0.8
+  timingPulseSpeed: 1.6
+  perfectTimingTolerance: 0.045
+  aiWearPitThreshold: 45
+  aiStrategyLap: 2
+  aiServiceSeconds: 5
 --- !u!1001 &858002474
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7781,3 +7836,4 @@ SceneRoots:
   - {fileID: 451036680}
   - {fileID: 1235927976}
   - {fileID: 34302396}
+  - {fileID: 846779520}

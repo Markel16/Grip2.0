@@ -64,6 +64,12 @@ public sealed class WheelTireWear : MonoBehaviour
         }
     }
 
+    public void ResetWear()
+    {
+        wearPercent = 0f;
+        UpdateGrip();
+    }
+
     private void CaptureOriginalFriction()
     {
         if (wheelCollider == null)
