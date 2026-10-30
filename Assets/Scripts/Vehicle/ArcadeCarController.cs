@@ -47,6 +47,13 @@ public sealed class ArcadeCarController : MonoBehaviour
     [SerializeField, Min(0f)] private float fuelConsumptionPerSecond = 0.15f;
     [SerializeField, Min(0f)] private float fuelRemainingLiters = 40f;
 
+    [Header("Surface Effects")]
+    [Tooltip("Aceleración vertical máxima de los baches en una superficie con rugosidad 1.")]
+    [SerializeField, Min(0f)] private float bumpAcceleration = 8f;
+    [SerializeField, Min(0f)] private float bumpFrequency = 6f;
+    [Tooltip("Velocidad a partir de la cual los baches se notan al máximo.")]
+    [SerializeField, Min(1f)] private float fullBumpSpeedKph = 80f;
+
     private readonly List<InputAction> actionsEnabledByThisController = new List<InputAction>();
     private float steeringInput;
     private float throttleInput;
@@ -60,6 +67,7 @@ public sealed class ArcadeCarController : MonoBehaviour
     public float FuelRemainingLiters => fuelRemainingLiters;
     public float CurrentSpeedKph => vehicleBody != null ? vehicleBody.linearVelocity.magnitude * 3.6f : 0f;
     public Vector3 WorldForward => transform.TransformDirection(localForwardDirection.normalized);
+    public float SurfaceRoughness { get; private set; }
     public float AverageTireWearPercent
     {
         get
@@ -185,6 +193,46 @@ public sealed class ArcadeCarController : MonoBehaviour
 
             wheelCollider.brakeTorque = appliedBrake * wheel.BrakeMultiplier;
         }
+
+        ApplySurfaceEffects();
+    }
+
+    private void ApplySurfaceEffects()
+    {
+        SurfaceRoughness = 0f;
+        if (vehicleBody == null || wheels.Length == 0)
+        {
+            return;
+        }
+
+        Vector3 horizontalVelocity = Vector3.ProjectOnPlane(vehicleBody.linearVelocity, Vector3.up);
+        float bumpSpeedFactor = Mathf.Clamp01(horizontalVelocity.magnitude * 3.6f / fullBumpSpeedKph);
+        float roughnessSum = 0f;
+
+        for (int i = 0; i < wheels.Length; i++)
+        {
+            WheelTireWear tire = wheels[i] != null ? wheels[i].Tire : null;
+            WheelSurface surface = tire != null && tire.IsGrounded ? tire.CurrentSurface : null;
+            if (surface == null)
+            {
+                continue;
+            }
+
+            // Cada rueda aporta su parte: con dos ruedas en la hierba se frena la mitad.
+            vehicleBody.AddForce(-horizontalVelocity * (surface.RollingResistance / wheels.Length), ForceMode.Acceleration);
+
+            if (surface.Roughness <= 0f)
+            {
+                continue;
+            }
+
+            float noise = Mathf.PerlinNoise(Time.time * bumpFrequency, i * 17.3f) * 2f - 1f;
+            float bump = noise * bumpAcceleration * surface.Roughness * bumpSpeedFactor;
+            vehicleBody.AddForceAtPosition(Vector3.up * (bump * vehicleBody.mass / wheels.Length), tire.Collider.transform.position);
+            roughnessSum += surface.Roughness * bumpSpeedFactor;
+        }
+
+        SurfaceRoughness = roughnessSum / wheels.Length;
     }
 
     private void LateUpdate()
