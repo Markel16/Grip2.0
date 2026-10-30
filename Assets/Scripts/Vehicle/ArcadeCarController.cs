@@ -306,8 +306,9 @@ public sealed class ArcadeCarController : MonoBehaviour
     {
         externalInputMode = true;
         steeringInput = Mathf.Clamp(steering, -1f, 1f);
+        // Un acelerador negativo es marcha atrás.
         throttleInput = Mathf.Clamp01(throttle);
-        reverseInput = 0f;
+        reverseInput = Mathf.Clamp01(-throttle);
         brakeInput = Mathf.Clamp01(brake);
         handbrakeInput = Mathf.Clamp01(handbrake);
     }
