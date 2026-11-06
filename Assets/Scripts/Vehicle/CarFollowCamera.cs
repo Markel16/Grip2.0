@@ -56,6 +56,12 @@ public sealed class CarFollowCamera : MonoBehaviour
     [Tooltip("Plano de recorte cercano en las cámaras montadas, para que no se corte el coche al estar tan cerca.")]
     [SerializeField, Min(0.01f)] private float mountedNearClipPlane = 0.05f;
 
+    [Header("Car Forward")]
+    [Tooltip("Aprende hacia dónde avanza de verdad el coche en vez de fiarse solo del eje del ArcadeCarController. Corrige las cámaras que miran de lado.")]
+    [SerializeField] private bool learnForwardFromMotion = true;
+    [SerializeField, Min(1f)] private float learnForwardMinSpeedKph = 15f;
+    [SerializeField, Min(0f)] private float learnForwardSmoothing = 2f;
+
     [Header("Heading")]
     [Tooltip("Por encima de esta velocidad la cámara se orienta según la dirección real de movimiento del coche.")]
     [SerializeField, Min(0f)] private float velocityHeadingMinSpeedKph = 5f;
@@ -100,6 +106,8 @@ public sealed class CarFollowCamera : MonoBehaviour
     private float viewNameTimer;
     private Vector3 heading;
     private bool headingFromVelocity;
+    private Vector3 localCarForward;
+    private bool localForwardFromMotion;
     private Vector3 smoothedPosition;
     private Quaternion smoothedRotation;
     private float speedFactor;
@@ -149,6 +157,22 @@ public sealed class CarFollowCamera : MonoBehaviour
             return;
         }
 
+        // Una cámara puesta en el coche se dibujaría encima de esta y taparía el cambio de vistas.
+        foreach (Camera carCamera in target.GetComponentsInChildren<Camera>())
+        {
+            if (carCamera != followCamera && carCamera.targetTexture == null)
+            {
+                carCamera.enabled = false;
+                AudioListener carListener = carCamera.GetComponent<AudioListener>();
+                if (carListener != null)
+                {
+                    carListener.enabled = false;
+                }
+
+                Debug.LogWarning($"Se ha desactivado la cámara de '{carCamera.name}': las vistas las maneja '{name}'. Quítala del coche en la jerarquía.", carCamera);
+            }
+        }
+
         foreach (Camera other in FindObjectsByType<Camera>())
         {
             if (other != followCamera && other.enabled && other.targetTexture == null && other.depth >= followCamera.depth)
@@ -181,6 +205,7 @@ public sealed class CarFollowCamera : MonoBehaviour
         }
 
         float deltaTime = Time.deltaTime;
+        UpdateCarForward(Blend(learnForwardSmoothing, deltaTime));
         UpdateHeading(Blend(headingSmoothing, deltaTime));
         UpdateSpeedEffects(deltaTime);
 
@@ -221,7 +246,9 @@ public sealed class CarFollowCamera : MonoBehaviour
         }
 
         targetBody = target.GetComponent<Rigidbody>();
-        heading = Flatten(target.WorldForward, Vector3.forward);
+        localCarForward = target.transform.InverseTransformDirection(target.WorldForward).normalized;
+        localForwardFromMotion = false;
+        heading = Flatten(CarForward, Vector3.forward);
         headingFromVelocity = false;
         speedFactor = 0f;
         lean = 0f;
@@ -244,6 +271,35 @@ public sealed class CarFollowCamera : MonoBehaviour
             followCamera.fieldOfView = view.fieldOfView;
             followCamera.nearClipPlane = view.kind == ViewKind.Mounted ? mountedNearClipPlane : defaultNearClipPlane;
         }
+    }
+
+    private Vector3 CarForward => target.transform.TransformDirection(localCarForward).normalized;
+
+    // Mide en el espacio del coche hacia dónde se mueve al conducir: así las cámaras montadas miran
+    // hacia delante aunque el eje declarado en el ArcadeCarController no coincida con el morro real.
+    private void UpdateCarForward(float blend)
+    {
+        if (!learnForwardFromMotion || targetBody == null || target.CurrentSpeedKph < learnForwardMinSpeedKph)
+        {
+            return;
+        }
+
+        Vector3 localVelocity = target.transform.InverseTransformDirection(targetBody.linearVelocity);
+        localVelocity.y = 0f;
+        if (localVelocity.sqrMagnitude < 0.01f)
+        {
+            return;
+        }
+
+        Vector3 desired = localVelocity.normalized;
+        // Igual que con la cámara de TV: la primera vez se toma tal cual; después, marcha atrás no le da la vuelta.
+        if (localForwardFromMotion && Vector3.Dot(desired, localCarForward) < 0f)
+        {
+            desired = -desired;
+        }
+
+        localCarForward = localForwardFromMotion ? Vector3.Slerp(localCarForward, desired, blend).normalized : desired;
+        localForwardFromMotion = true;
     }
 
     private void UpdateHeading(float blend)
@@ -309,7 +365,7 @@ public sealed class CarFollowCamera : MonoBehaviour
         if (view.kind == ViewKind.Mounted)
         {
             // Usa la orientación real del coche (incluida la inclinación en rampas y derrapes), como una cámara atornillada.
-            Vector3 forward = target.WorldForward.normalized;
+            Vector3 forward = CarForward;
             Vector3 up = target.transform.up;
             Vector3 right = Vector3.Cross(up, forward).normalized;
             position = carPosition + right * view.offset.x + up * view.offset.y + forward * view.offset.z;
